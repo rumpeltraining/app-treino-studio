@@ -7,6 +7,27 @@ import { supabase } from "@/lib/supabaseClient";
 export default function TVPage() {
   const [alunosAtivos, setAlunosAtivos] = useState<(Aluno & { treinoAtualId: string })[]>([]);
   const isEditingRef = useRef(false);
+  const [zoom, setZoom] = useState<number>(100);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("tv_screen_zoom");
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 70 && parsed <= 200) {
+          setZoom(parsed);
+        }
+      }
+    }
+  }, []);
+
+  const handleZoomChange = (newZoom: number) => {
+    const clamped = Math.min(200, Math.max(70, newZoom));
+    setZoom(clamped);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("tv_screen_zoom", clamped.toString());
+    }
+  };
 
   const carregarDados = async () => {
     const session = await mockDb.getTvSession();
@@ -126,10 +147,114 @@ export default function TVPage() {
     await mockDb.updateNomeAluno(alunoId, valor);
   };
 
+  const renderZoomControl = () => (
+    <div
+      style={{
+        position: 'fixed',
+        top: '12px',
+        right: '16px',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        background: 'rgba(26, 23, 44, 0.92)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        borderRadius: '8px',
+        padding: '5px 12px',
+        gap: '12px',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
+        userSelect: 'none',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => handleZoomChange(zoom - 5)}
+        disabled={zoom <= 70}
+        title="Diminuir zoom (-5%)"
+        style={{
+          background: 'transparent',
+          border: 'none',
+          color: zoom <= 70 ? 'rgba(255, 255, 255, 0.3)' : '#ffffff',
+          cursor: zoom <= 70 ? 'not-allowed' : 'pointer',
+          fontSize: '1.1rem',
+          fontWeight: 700,
+          lineHeight: 1,
+          padding: '2px 6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'color 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (zoom > 70) (e.currentTarget.style.color = '#38bdf8');
+        }}
+        onMouseLeave={(e) => {
+          if (zoom > 70) (e.currentTarget.style.color = '#ffffff');
+        }}
+      >
+        −
+      </button>
+
+      <span
+        onClick={() => handleZoomChange(100)}
+        title="Clique para redefinir para 100%"
+        style={{
+          fontSize: '0.9rem',
+          fontWeight: 800,
+          color: '#ffffff',
+          minWidth: '44px',
+          textAlign: 'center',
+          cursor: 'pointer',
+          letterSpacing: '0.5px',
+        }}
+      >
+        {zoom}%
+      </span>
+
+      <button
+        type="button"
+        onClick={() => handleZoomChange(zoom + 5)}
+        disabled={zoom >= 200}
+        title="Aumentar zoom (+5%)"
+        style={{
+          background: 'transparent',
+          border: 'none',
+          color: zoom >= 200 ? 'rgba(255, 255, 255, 0.3)' : '#ffffff',
+          cursor: zoom >= 200 ? 'not-allowed' : 'pointer',
+          fontSize: '1.1rem',
+          fontWeight: 700,
+          lineHeight: 1,
+          padding: '2px 6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'color 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (zoom < 200) (e.currentTarget.style.color = '#38bdf8');
+        }}
+        onMouseLeave={(e) => {
+          if (zoom < 200) (e.currentTarget.style.color = '#ffffff');
+        }}
+      >
+        +
+      </button>
+    </div>
+  );
+
   // Se não tem ninguém
   if (alunosAtivos.length === 0) {
     return (
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)' }}>
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-main)',
+        position: 'relative',
+      }}>
+        {renderZoomControl()}
         <Dumbbell size={80} color="var(--border-medium)" />
         <h1 style={{ color: 'var(--text-secondary)', marginTop: '20px' }}>Rumpel Training</h1>
         <p style={{ color: 'var(--text-muted)' }}>Aguardando o professor enviar os treinos...</p>
@@ -420,13 +545,22 @@ export default function TVPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      padding: px(4),
       background: 'var(--bg-main)',
-      display: 'grid',
-      gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      gap: px(4),
-      alignItems: 'stretch'
+      position: 'relative',
+      overflowX: 'auto',
     }}>
+      {renderZoomControl()}
+
+      <div style={{
+        zoom: `${zoom}%`,
+        minHeight: '100vh',
+        padding: px(4),
+        background: 'var(--bg-main)',
+        display: 'grid',
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gap: px(4),
+        alignItems: 'stretch',
+      }}>
       {alunosAtivos.map(aluno => {
         const treino = aluno.treinos.find(t => t.id === aluno.treinoAtualId) || aluno.treinos[0];
         if (!treino) return null;
@@ -549,6 +683,7 @@ export default function TVPage() {
           </div>
         );
       })}
+      </div>
 
       {/* Rumpel Training Watermark */}
       <div style={{ position: 'fixed', bottom: '15px', right: '20px', color: 'var(--text-secondary)', opacity: 0.15, fontSize: '1.4rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'none', zIndex: 100 }}>
