@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { mockDb, Aluno, Treino, Exercicio, MODELOS_ESTUDIO, BaseTreino, registrarEvolucaoCargas, garantirHistoricoCargasAluno, formatNomeAluno } from "@/lib/mockData";
-import { Save, Plus, Trash2, ArrowLeft, CopyCheck, Eraser, Upload, BookOpen, X, GripVertical, ChevronUp, ChevronDown, FileText, TrendingUp, Printer, Download, Award, Calendar, Dumbbell, Sparkles } from "lucide-react";
+import { Save, Plus, Trash2, ArrowLeft, CopyCheck, Eraser, Upload, BookOpen, X, GripVertical, ChevronUp, ChevronDown, FileText, TrendingUp, Printer, Download, Award, Calendar, Dumbbell, Sparkles, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
@@ -410,6 +410,8 @@ export default function TreinosPage() {
   const [showNovoAlunoModal, setShowNovoAlunoModal] = useState(false);
   const [novoAlunoNome, setNovoAlunoNome] = useState("");
   const [novoAlunoIntrodutorio, setNovoAlunoIntrodutorio] = useState(false);
+  const [showEditarNomeModal, setShowEditarNomeModal] = useState(false);
+  const [editarNomeValue, setEditarNomeValue] = useState("");
   const [semanasInput, setSemanasInput] = useState<string>("");
 
   useEffect(() => {
@@ -1193,6 +1195,34 @@ export default function TreinosPage() {
     setShowNovoAlunoModal(false);
   };
 
+  const handleEditarNome = () => {
+    if (!alunoAtual) return;
+    setEditarNomeValue(alunoAtual.nome);
+    setShowEditarNomeModal(true);
+  };
+
+  const confirmarEditarNome = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!alunoAtual) return;
+    if (!editarNomeValue.trim()) {
+      alert("Por favor, digite um nome válido para o aluno.");
+      return;
+    }
+
+    const novoNomeFormatado = formatNomeAluno(editarNomeValue);
+    const alunoAtualizado: Aluno = {
+      ...alunoAtual,
+      nome: novoNomeFormatado,
+    };
+
+    await mockDb.saveAluno(alunoAtualizado);
+
+    setAlunoAtual(alunoAtualizado);
+    const updatedAlunos = await mockDb.getAlunos();
+    setAlunos(updatedAlunos);
+    setShowEditarNomeModal(false);
+  };
+
   const alunosVencidos = (() => {
     return alunos.filter(a => {
       if (!a.historico || a.historico.length === 0 || !a.treinos || a.treinos.length === 0) return false;
@@ -1324,7 +1354,18 @@ export default function TreinosPage() {
             {alunosFiltrados.length === 0 && <option value="" disabled>Nenhum aluno encontrado</option>}
         </select>
 
-        <button onClick={handleNovoAluno} className="premium-btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+        {alunoAtual && (
+          <button 
+            onClick={handleEditarNome} 
+            title="Editar nome do aluno selecionado" 
+            className="premium-btn-outline" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Pencil size={18} /> Editar Nome
+          </button>
+        )}
+
+        <button onClick={handleNovoAluno} className="premium-btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: alunoAtual ? '0' : 'auto' }}>
           <Plus size={18} /> Novo Aluno
         </button>
       </div>
@@ -2665,6 +2706,69 @@ export default function TreinosPage() {
                   style={{ padding: '10px 20px', fontWeight: 700 }}
                 >
                   Criar Ficha do Aluno
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDITAR NOME DO ALUNO */}
+      {showEditarNomeModal && alunoAtual && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)', borderRadius: '16px',
+            border: '1px solid var(--border-medium)', padding: '28px',
+            maxWidth: '450px', width: '100%', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)'
+          }}>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '6px', color: 'var(--text-primary)' }}>
+              Editar Nome do Aluno
+            </h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+              Altere a grafia do nome do aluno caso tenha sido digitado incorretamente.
+            </p>
+
+            <form onSubmit={confirmarEditarNome}>
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  NOME DO ALUNO
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={editarNomeValue}
+                  onChange={(e) => setEditarNomeValue(e.target.value)}
+                  placeholder="Digite o nome correto..."
+                  style={{
+                    width: '100%', padding: '12px 14px', borderRadius: '8px',
+                    border: '1px solid var(--border-medium)', background: 'var(--bg-main)',
+                    color: 'var(--text-primary)', fontSize: '1rem', outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEditarNomeModal(false)}
+                  style={{
+                    padding: '10px 18px', borderRadius: '8px', border: '1px solid var(--border-medium)',
+                    background: 'transparent', color: 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="premium-btn"
+                  style={{ padding: '10px 20px', fontWeight: 700 }}
+                >
+                  Salvar Nome
                 </button>
               </div>
             </form>
